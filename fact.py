@@ -1,14 +1,11 @@
 #!/usr/bin/python
 
-# play = ai[(player,hand,board,move)] = matches
-
 from itertools import permutations
-from random import randint
+from random import randint, choice
 
-matches = {}
 startingMatches = 1
 startingBoard = frozenset(range(1,10))
-numGames = 100000
+numGames = 500000
 
 play = {}
 players = range(2)
@@ -55,13 +52,16 @@ def choosePlay(player, hand, plays):
 			nh.append(p)
 			if winningHand(nh):
 				return p
-		tots = sum(plays.values())
-		ch = randint(0,tots)
-		#print "Plays {} choice {}".format(plays, ch)
-		for p in plays:
-			ch -= plays[p]
-			if ch <= 0:
-				return p
+		if randint(0,100) > 50:
+			tots = sum(plays.values())
+			ch = randint(0,tots)
+			#print "Plays {} choice {}".format(plays, ch)
+			for p in plays:
+				ch -= plays[p]
+				if ch <= 0:
+					return p
+		else:
+			return choice(plays.keys())
 		print "error in choosePlay"
 		return plays[0]
 	elif player == 1:
@@ -70,8 +70,12 @@ def choosePlay(player, hand, plays):
 		print "Computer chooses {}".format(p)
 		return p
 	else:
-		p = int(raw_input("Your move: "))
-		return p
+		while True:
+			p = int(raw_input("Your move: "))
+			if p in plays:
+				return p
+			else:
+				print "Invalid move"
 
 def playGame(player, board):
 	global playRecord
@@ -104,8 +108,9 @@ for i in range(numGames):
 			for rec in playRecord[player]:
 				play[rec] += 1
 	else:
-		for rec in playRecord[player]:
-			play[rec] += 10
+		for p in players:
+			for rec in playRecord[player]:
+				play[rec] = (play[rec] + 10) if p == player else max(1, play[rec]-1)
 
 print getPlays(0, frozenset([]), startingBoard)
 
