@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from itertools import permutations
+from itertools import combinations
 from random import randint, choice
 from threading import Thread
 import sys
@@ -107,7 +107,7 @@ def winningHand(hand):
 	"return True if this is a winning hand"
 	if len(hand) < 3:
 		return False
-	for p in permutations(hand, 3):
+	for p in combinations(hand, 3):
 		if sum(p) == 15:
 			return True
 	return False
