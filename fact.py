@@ -3,7 +3,6 @@
 from itertools import permutations
 from random import randint, choice
 from threading import Thread
-from time import sleep
 import sys
 
 startingMatches = 1
@@ -51,10 +50,12 @@ class AI(Thread):
 			if player is None:
 				for p in players:
 					for rec in playRecord[p.getId()]:
+						# Draw is rewarded by granting 1 point to each player
 						play[rec] += 1
 			else:
 				for p in players:
 					for rec in playRecord[player.getId()]:
+						# A win gets the winner 10 points and the loser loses a point (floor of 1)
 						play[rec] = (play[rec] + 10) if p == player else max(1, play[rec]-1)
 		
 		if count >= maxIQ:
@@ -64,28 +65,27 @@ class AI(Thread):
 			print "Exiting!"
 
 play = {}
-xplayerNames = [ 'Earthling', 'Robot Overlord' ]
-xplayerHuman = [ True, False ]
 
 players = [Player('Earthling', True), Player('Robot Overlord', False)]
 playRecord = [[] for p in players]
-stopThread = False
 
 brains = AI()
 brains.start()
 
 def nextPlayer(player):
+	"Returns the next player in the list"
 	if player == players[0]:
 		return players[1]
 	return players[0]
 
 def prettyList(l):
+	"returns the list as a joined string"
 	a = list(l)
 	a.sort()
 	return ' '.join([str(x) for x in a]) if len(a) > 0 else 'No cards'
 
 def getPlays(player, hand, board):
-	#print "Player {} has hand {} board {}".format(player, hand, board)
+	"get the score for this play"
 	plays = {}
 	for move in board:
 		tup = tuple([player, hand, board, move])
@@ -95,6 +95,7 @@ def getPlays(player, hand, board):
 	return plays
 
 def makePlay(player, hand, board, move):
+	"make a play"
 	newHand = list(hand)
 	newHand.append(move)
 	newHand.sort()
@@ -103,40 +104,46 @@ def makePlay(player, hand, board, move):
 	return frozenset(newHand), frozenset(newBoard)
 
 def winningHand(hand):
+	"return True if this is a winning hand"
 	if len(hand) < 3:
 		return False
 	for p in permutations(hand, 3):
 		if sum(p) == 15:
-			#print "{} is a winning hand".format(hand)
 			return True
 	return False
 
 def choosePlay(learningMode, player, hand, plays, hands):
-	global stopThread
+	"Choose a play from among the legal possibilities"
 	if learningMode:
+		# choose a winning move if one is available
 		for p in plays:
 			nh = list(hand)
 			nh.append(p)
 			if winningHand(nh):
 				return p
+		
+		# half the time, choose a move weighted by score
 		if randint(0,100) > 50:
 			tots = sum(plays.values())
 			ch = randint(0,tots)
-			#print "Plays {} choice {}".format(plays, ch)
+
 			for p in plays:
 				ch -= plays[p]
 				if ch <= 0:
 					return p
+		# the other half, move randomly
 		else:
 			return choice(plays.keys())
 		print "error in choosePlay"
 		return plays[0]
 	elif not player.getHuman():
+		# if we're not the AI, always choose the move with the best score
 		best = max(plays.values())
 		p = [p for p in plays if plays[p] == best][0]
 		print "{} chooses {}".format(player.getName(), p)
 		return p
 	else:
+		# if we're a human, then ask for a move
 		you = nextPlayer(player)
 		print "Available cards: {}".format(prettyList(plays.keys()))
 		print "{}'s cards: {}".format(you.getName(), prettyList(hands[you.getId()]))
@@ -147,13 +154,17 @@ def choosePlay(learningMode, player, hand, plays, hands):
 			if p in ['q','Q']:
 				brains.stop()
 				sys.exit(0)
-			p = int(p)
-			if p in plays:
-				return p
-			else:
-				print "Invalid move"
+			try:
+				p = int(p)
+				if p in plays:
+					return p
+				else:
+					print "Invalid move"
+			except ValueError:
+				print "What?"
 
 def playGame(learningMode, player, board, hands):
+	"Play an entire game, recursively calling this method for each move"
 	global playRecord
 	if len(board) == 0:
 		if not learningMode:
@@ -161,8 +172,6 @@ def playGame(learningMode, player, board, hands):
 		return None
 	hand = hands[player.getId()]
 	plays = getPlays(player, hand, board)
-	#if not learningMode and player.getHuman():
-	#	print "Available plays: {}".format(plays)
 	move = choosePlay(learningMode, player, hand, plays, hands)
 	tup = tuple([player, hand, board, move])
 	playRecord[player.getId()].append(tup)
