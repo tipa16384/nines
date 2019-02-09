@@ -2,17 +2,53 @@
 
 from itertools import permutations
 from random import randint, choice
+from threading import Thread
+from time import sleep
+import sys
 
 startingMatches = 1
 startingBoard = frozenset(range(1,10))
-numGames = 500000
+numGames = 100
 
 play = {}
-players = range(2)
-hands = [frozenset([]) for p in players]
-playRecord = [[] for p in players]
+playerNames = [ 'Earthling', 'Robot Overlord' ]
+playerHuman = [ True, False ]
 
-human = False
+players = range(len(playerNames))
+playRecord = [[] for p in players]
+stopThread = False
+
+class AI(Thread):
+	def __init__(self):
+		super(AI, self).__init__(name = 'hello')
+		self.stopMe = False
+	
+	def stop(self):
+		self.stopMe = True
+		print "Trying to stop"
+	
+	def run(self):
+		global players, playRecord, play, playerNames, playerHuman
+		print "I LIVE!"
+		count = 0
+		
+		while not self.stopMe:
+			hands = [frozenset([]) for p in players]
+			playRecord = [[] for p in players]
+			player = playGame(True, 0, startingBoard, hands)
+			if player == -1:
+				for p in players:
+					for rec in playRecord[player]:
+						play[rec] += 1
+			else:
+				for p in players:
+					for rec in playRecord[player]:
+						play[rec] = (play[rec] + 10) if p == player else max(1, play[rec]-1)
+		
+		print "Exiting!"
+
+brains = AI()
+brains.start()
 
 def getPlays(player, hand, board):
 	#print "Player {} has hand {} board {}".format(player, hand, board)
@@ -30,8 +66,6 @@ def makePlay(player, hand, board, move):
 	newHand.sort()
 	newBoard = list(board)
 	newBoard.remove(move)
-	#if human:
-	#	print "Player {} has hand {}".format(player, newHand)
 	return frozenset(newHand), frozenset(newBoard)
 
 def winningHand(hand):
@@ -43,10 +77,9 @@ def winningHand(hand):
 			return True
 	return False
 
-def choosePlay(player, hand, plays):
-	if human:
-		print "Player {} has this hand {} and these plays {}".format(player, list(hands[player]), plays.keys())
-	if not human:
+def choosePlay(learningMode, player, hand, plays, hands):
+	global stopThread
+	if learningMode:
 		for p in plays:
 			nh = list(hand)
 			nh.append(p)
@@ -64,62 +97,50 @@ def choosePlay(player, hand, plays):
 			return choice(plays.keys())
 		print "error in choosePlay"
 		return plays[0]
-	elif player == 1:
+	elif not playerHuman[player]:
 		best = max(plays.values())
 		p = [p for p in plays if plays[p] == best][0]
-		print "Computer chooses {}".format(p)
+		print "{} chooses {}".format(playerNames[player], p)
 		return p
 	else:
+		print "{} has this hand {} and these plays {}".format(playerNames[player], list(hands[player]), plays.keys())
 		while True:
-			p = int(raw_input("Your move: "))
+			p = raw_input("Your move, {} (Q to quit): ".format(playerNames[player]))
+			if p in ['q','Q']:
+				brains.stop()
+				sys.exit(0)
+			p = int(p)
 			if p in plays:
 				return p
 			else:
 				print "Invalid move"
 
-def playGame(player, board):
+def playGame(learningMode, player, board, hands):
 	global playRecord
 	if len(board) == 0:
-		if human:
-			print player, "No more moves"
+		if not learningMode:
+			print "DRAW!"
 		return -1
 	hand = hands[player]
 	plays = getPlays(player, hand, board)
-	if human:
+	if not learningMode and playerHuman[player]:
 		print "Available plays: {}".format(plays)
-	move = choosePlay(player, hand, plays)
+	move = choosePlay(learningMode, player, hand, plays, hands)
 	tup = tuple([player, hand, board, move])
 	playRecord[player].append(tup)
 	nh, nb = makePlay(player, hand, board, move)
 	hands[player] = nh
 	if winningHand(nh):
-		if human:
-			print "Player {} wins!".format(player)
+		if not learningMode:
+			print "{} wins!".format(playerNames[player])
 		return player
 	else:
-		return playGame(1 - player, nb)	
-
-for i in range(numGames):
-	hands = [frozenset([]) for p in players]
-	playRecord = [[] for p in players]
-	player = playGame(0, startingBoard)
-	if player == -1:
-		for p in players:
-			for rec in playRecord[player]:
-				play[rec] += 1
-	else:
-		for p in players:
-			for rec in playRecord[player]:
-				play[rec] = (play[rec] + 10) if p == player else max(1, play[rec]-1)
-
-print getPlays(0, frozenset([]), startingBoard)
-
-human = True
+		return playGame(learningMode, 1 - player, nb, hands)	
 
 while True:
 	hands = [frozenset([]) for p in players]
 	playRecord = [[] for p in players]
-	player = playGame(0, startingBoard)
+	player = playGame(False, 0, startingBoard, hands)
 	for rec in playRecord[player]:
 		play[rec] += 1
 	print
